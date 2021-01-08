@@ -7,6 +7,8 @@ from selenium.webdriver.chrome.options import Options
 import chromedriver_binary
 import re
 import json
+import smtplib
+from email.mime.text import MIMEText
 
 """
 config.json
@@ -29,7 +31,7 @@ class Loto6:
 
     def __init__(self, fpath: str):
         html = self.get_loto6_page(fpath)
-        time.sleep(5)
+        time.sleep(7)
         self.parse_html(html)
 
     def get_loto6_page(self, url: str) -> str:
@@ -106,7 +108,7 @@ class Loto6:
         elif cnt_match == 6:
             rank = 1
         return rank
-        
+
 class Loto6Config:
     def __init__(self, fpath: str):
         self.load_config(fpath)
@@ -126,10 +128,58 @@ class Loto6Config:
     def get_password(self) -> str:
         return self.config["Password"]
 
+def generate_text_loto6_result(res_loto6: tuple, selected_numbers: list)-> str:
+    rank = str(res_loto6[0])
+    rank = "はずれ" if rank == "-1" else rank + "等"
+    title = "Loto6当選状況: " + rank
+    message = "当選状況: " + rank + "<BR>"
+    main_numbers = res_loto6[1]
+    message += "本数字　: " + list_to_str(main_numbers) + "<BR>"
+    message += "選択数字: " + list_to_str(selected_numbers) + "<BR>"
+    matched_numbers = res_loto6[2]
+    message += "当選番号: " + list_to_str(matched_numbers) + "<BR>"
+    prize = res_loto6[3]
+    message += "　賞金　: " + prize
+
+    return (title, message)
+    
+def list_to_str(nums: list)->str:
+    s = ""
+    for num in nums:
+        s+= str(num) + ","
+    s = s.strip(",")
+    return s
+
+def send_mail_with_gmail(to: str, account: str, password: str, title: str, message: str):
+    smtp_host = 'smtp.gmail.com'
+    smtp_port = 587
+
+    msg = MIMEText(message, "html")     
+    msg['Subject'] = title
+    msg['From'] = account 
+    msg['To'] = to 
+
+    server = smtplib.SMTP(smtp_host, smtp_port)
+    server.ehlo()
+    server.starttls()
+    server.ehlo()
+    server.login(account, password)
+    server.send_message(msg)
+    server.quit()
+
 def main():
     # test_loto6()
     # test_config()
-    test_match_numbers()
+    # test_match_numbers()
+    run()
+
+def run():
+    url = "https://www.mizuhobank.co.jp/takarakuji/loto/loto6/index.html"
+    loto6 = Loto6(url)
+    config = Loto6Config("./config.json")
+    res = loto6.match_numbers(config.get_numbers())
+    message = generate_text_loto6_result(res, config.get_numbers())
+    send_mail_with_gmail(config.get_mail_address(), config.get_mail_address(), config.get_password(), message[0], message[1])
 
 def test_loto6():
     url = "https://www.mizuhobank.co.jp/takarakuji/loto/loto6/index.html"
@@ -154,10 +204,19 @@ def test_match_numbers():
     config = Loto6Config("./config.json")
     res = loto6.match_numbers(config.get_numbers())
     print(res)
+    message = generate_text_loto6_result(res)
+    print(message[0])
+    print(message[1])
     res = loto6.match_numbers([4, 5, 27, 35, 33, 41])
     print(res)
+    message = generate_text_loto6_result(res)
+    print(message[0])
+    print(message[1])
     res = loto6.match_numbers([1, 2, 3, 4, 5, 6])
     print(res)
+    message = generate_text_loto6_result(res)
+    print(message[0])
+    print(message[1])
 
 
 
