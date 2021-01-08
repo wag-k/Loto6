@@ -1,3 +1,4 @@
+import collections
 import requests
 import bs4
 import time
@@ -18,8 +19,18 @@ config.json
 
 
 class Loto6:
+    #### Member ####
+    """
+    soup: bs4.BeautifulSoup
+    config: Loto6Config
+    """
     def __init__(self):
         pass
+
+    def __init__(self, fpath: str):
+        html = self.get_loto6_page(fpath)
+        time.sleep(5)
+        self.parse_html(html)
 
     def get_loto6_page(self, url: str) -> str:
         options = Options()
@@ -48,6 +59,54 @@ class Loto6:
         bonus_number = int(bonus_number)
         return bonus_number
 
+    def get_prize(self, rank: int) -> str:
+        t = self.soup.find_all('table')
+        prize = t[0].find_all("tr")[3+rank].find_all("td")[1].text
+        return prize
+
+    # 何等賞か調べて、(等, 本数時, 当選番号, 当選金額)のtupleを返す。
+    # はずれの場合は等が-1、当選金額が-1
+    def match_numbers(self, selected_numbers: list) -> tuple:
+        # 2分探索の方が高速だが、Nが小さいので愚直に調べても不満はない
+        rank = -1
+        main_numbers = self.get_main_number()
+        matched_numbers = []
+        prize = "はずれ"
+
+        cnt_match = 0
+        unmatched_numbers = []
+        for selected_num in selected_numbers:
+            if(selected_num in main_numbers):
+                cnt_match += 1
+                matched_numbers.append(selected_num)
+            else:
+                unmatched_numbers.append(selected_num)
+
+        bonus_number = self.get_bonus_number()
+        rank = self.decide_rank(cnt_match, unmatched_numbers, bonus_number)
+        if rank == 2:
+            matched_numbers.append(bonus_number)
+        
+        if 0 < rank:
+            prize = self.get_prize(rank)
+        
+        return (rank, main_numbers, matched_numbers, prize)
+
+    def decide_rank(self, cnt_match: int, unmatched_numbers: list, bonus_number: int) -> int:
+        rank = -1
+        if cnt_match == 3:
+            rank = 5
+        elif cnt_match == 4:
+            rank = 4
+        elif cnt_match == 5:
+            if bonus_number in unmatched_numbers:
+                rank = 2
+            else:
+                rank = 3
+        elif cnt_match == 6:
+            rank = 1
+        return rank
+        
 class Loto6Config:
     def __init__(self, fpath: str):
         self.load_config(fpath)
@@ -91,7 +150,15 @@ def test_config():
 
 def test_match_numbers():
     url = "https://www.mizuhobank.co.jp/takarakuji/loto/loto6/index.html"
+    loto6 = Loto6(url)
     config = Loto6Config("./config.json")
+    res = loto6.match_numbers(config.get_numbers())
+    print(res)
+    res = loto6.match_numbers([4, 5, 27, 35, 33, 41])
+    print(res)
+    res = loto6.match_numbers([1, 2, 3, 4, 5, 6])
+    print(res)
+
 
 
 if __name__ == "__main__":
