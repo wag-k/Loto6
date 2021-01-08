@@ -49,28 +49,49 @@ class Loto6:
         return bonus_number
 
 class Loto6Config:
-    
-    def load_config(fpath: str) -> dict:
+    def __init__(self, fpath: str):
+        self.load_config(fpath)
+
+    def load_config(self, fpath: str) -> dict:
         with open(fpath) as f:
             config = json.load(f)
+        self.config = config
         return config
 
+    def get_numbers(self) -> list:
+        return self.config["Numbers"]
+
+    def get_mail_address(self) -> str:
+        return self.config["MailAddress"]
+
+    def get_password(self) -> str:
+        return self.config["Password"]
+
 def main():
-    #test_loto6()
-    load_config("./config.json")
-
-
+    # test_loto6()
+    # test_config()
+    test_match_numbers()
 
 def test_loto6():
     url = "https://www.mizuhobank.co.jp/takarakuji/loto/loto6/index.html"
     loto6 = Loto6()
     html = loto6.get_loto6_page(url)
     time.sleep(5)
-    soup = loto6.parse_html(html)
+    loto6.parse_html(html)
     main_numbers = loto6.get_main_number()
     bonus_number = loto6.get_bonus_number()
     print(main_numbers)
     print(bonus_number)
+
+def test_config():
+    config = Loto6Config("./config.json")
+    print(config.get_numbers())
+    print(config.get_mail_address())
+    print(config.get_password())
+
+def test_match_numbers():
+    url = "https://www.mizuhobank.co.jp/takarakuji/loto/loto6/index.html"
+    config = Loto6Config("./config.json")
 
 
 if __name__ == "__main__":
